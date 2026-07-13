@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import HelloWorld from './components/HelloWorld.vue'
+// No component imports needed; router-view will handle navigation
 </script>
 
 <template>
-  <HelloWorld />
+  <router-view />
 </template>
