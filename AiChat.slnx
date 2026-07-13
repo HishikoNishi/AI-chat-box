@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/backend/">
+    <Project Path="backend/AiChat.Api/AiChat.Api.csproj" />
+    <Project Path="backend/AiChat.Application/AiChat.Application.csproj" />
+    <Project Path="backend/AiChat.Domain/AiChat.Domain.csproj" />
+    <Project Path="backend/AiChat.Infrastructure/AiChat.Infrastructure.csproj" />
+    <Project Path="backend/AiChat.Tests/AiChat.Tests.csproj" />
+  </Folder>
+</Solution>
