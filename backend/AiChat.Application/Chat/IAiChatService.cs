@@ -6,4 +6,5 @@ public interface IAiChatService
     IAsyncEnumerable<string> GenerateContentStreamAsync(
         IReadOnlyList<ChatMessageResponse> messages,
         CancellationToken cancellationToken = default);
+
 }

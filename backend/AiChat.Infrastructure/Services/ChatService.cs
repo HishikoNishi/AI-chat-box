@@ -1,3 +1,4 @@
+using System.Text.Json;
 using AiChat.Application.Chat;
 using AiChat.Application.Common;
 using AiChat.Domain.Entities;
@@ -25,19 +26,23 @@ public sealed class ChatService(AppDbContext dbContext) : IChatService
     {
         await RequireSessionAsync(userId, sessionId, cancellationToken);
         return await dbContext.Messages.AsNoTracking().Where(x => x.SessionId == sessionId).OrderBy(x => x.CreatedAt)
-            .Select(x => new ChatMessageResponse(x.Id, x.Role, x.Content, x.CreatedAt)).ToListAsync(cancellationToken);
+                    .Select(x => new ChatMessageResponse(x.Id, x.SessionId, x.Role, x.Content, x.CreatedAt)).ToListAsync(cancellationToken);
     }
 
-    public async Task<ChatMessageResponse> AddMessageAsync(Guid userId, Guid sessionId, MessageRole role, string content, CancellationToken cancellationToken = default)
+    public async Task<ChatMessageResponse> AddMessageAsync(
+        Guid userId, Guid sessionId, MessageRole role, string content,
+        CancellationToken cancellationToken = default, Guid? presetId = null)
     {
         if (string.IsNullOrWhiteSpace(content)) throw new ValidationException("Message content cannot be empty.");
+
         var session = await RequireSessionAsync(userId, sessionId, cancellationToken);
-        var message = new ChatMessage { SessionId = sessionId, Role = role, Content = content.Trim() };
+        var message = new ChatMessage { SessionId = sessionId, Role = role, Content = content.Trim() }; if (presetId is { } id) message.Id = id;
         session.UpdatedAt = DateTimeOffset.UtcNow;
         if (session.Title == "New chat" && role == MessageRole.User) session.Title = message.Content[..Math.Min(message.Content.Length, 60)];
+
         dbContext.Messages.Add(message);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new ChatMessageResponse(message.Id, message.Role, message.Content, message.CreatedAt);
+        return new ChatMessageResponse(message.Id, message.SessionId, message.Role, message.Content, message.CreatedAt);
     }
 
     private async Task<ChatSession> RequireSessionAsync(Guid userId, Guid sessionId, CancellationToken cancellationToken) =>
