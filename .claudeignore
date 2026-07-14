@@ -1,11 +1,11 @@
 node_modules/
-Dist/
-bin/
-obj/
-.vs/
-coverage/
-.git/
-*.log
-*.png
-*.jpg
-*.jpeg
+ dist/
+ bin/
+ obj/
+ .vs/
+ coverage/
+ .git/
+ *.log
+ *.png
+ *.jpg
+ *.jpeg

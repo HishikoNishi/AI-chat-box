@@ -6,3 +6,11 @@ node_modules/
 *.user
 appsettings.Local.json
 .env
+tools/signalr-smoke-test/signalr-smoke-test.mjs
+tools/signalr-smoke-test/README.md
+tools/signalr-smoke-test/package.json
+tools/signalr-smoke-test/package-lock.json
+tools/signalr-smoke-test/debug-send.mjs
+prompt-analyze-backend.md
+.claudeignore
+.claudeignore
