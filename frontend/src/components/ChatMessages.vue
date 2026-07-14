@@ -97,4 +97,48 @@ watch(
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.message-row {
+  display: flex;
+  width: 100%;
+}
+
+
+/* User bên phải */
+.message-row.user {
+  justify-content: flex-end;
+}
+
+
+/* AI bên trái */
+.message-row.assistant {
+  justify-content: flex-start;
+}
+
+
+.message-row.user .message-bubble {
+  background: #2563eb;
+  color: white;
+  border-radius: 18px 18px 4px 18px;
+}
+
+
+.message-row.assistant .message-bubble {
+  background: #e5e7eb;
+  color: #111827;
+  border-radius: 18px 18px 18px 4px;
+}
+
+
+.message-bubble {
+  max-width: 70%;
+  padding: 12px 16px;
+}
 </style>

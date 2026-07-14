@@ -11,5 +11,4 @@ public sealed class ChatMessage
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public ChatSession Session { get; set; } = null!;
-    public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
 }

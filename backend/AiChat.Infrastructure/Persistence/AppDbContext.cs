@@ -9,7 +9,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<ChatSession> ChatSessions => Set<ChatSession>();
     public DbSet<ChatMessage> Messages => Set<ChatMessage>();
-    public DbSet<Attachment> Attachments => Set<Attachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,16 +49,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Content).IsRequired();
             entity.HasIndex(x => new { x.SessionId, x.CreatedAt });
             entity.HasOne(x => x.Session).WithMany(x => x.Messages).HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<Attachment>(entity =>
-        {
-            entity.ToTable("attachments");
-            entity.HasKey(x => x.Id);
-            entity.Property(x => x.FileName).HasMaxLength(255).IsRequired();
-            entity.Property(x => x.ContentType).HasMaxLength(127).IsRequired();
-            entity.Property(x => x.StoragePath).HasMaxLength(1024).IsRequired();
-            entity.HasOne(x => x.Message).WithMany(x => x.Attachments).HasForeignKey(x => x.MessageId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

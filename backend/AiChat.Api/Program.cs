@@ -20,7 +20,7 @@ builder.Services.AddControllers()
             new JsonStringEnumConverter()
         );
     });
-builder.Services.AddSignalR();
+builder.Services.AddSignalR(options => options.EnableDetailedErrors = builder.Environment.IsDevelopment());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

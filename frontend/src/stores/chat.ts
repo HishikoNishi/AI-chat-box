@@ -9,6 +9,7 @@ import { computed, ref } from 'vue'
 import * as chatApi from '@/api/chat'
 import { getApiUrl } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { normalizeMessage } from '@/utils/message'
 import type {
   ChatMessage,
   ChatSession,
@@ -93,15 +94,23 @@ export const useChatStore = defineStore('chat', () => {
     }
   }
 
-  function upsertMessage(message: ChatMessage): void {
-      const index = messages.value.findIndex((item) => item.id === message.id)
-    if (index >= 0) {
-      messages.value[index] = { ...messages.value[index], ...message }
-      return
-    }
+function upsertMessage(message: ChatMessage): void {
+  const normalized = normalizeMessage(message)
 
-    messages.value.push(message)
+  const index = messages.value.findIndex(
+    (item) => item.id === normalized.id
+  )
+
+  if (index >= 0) {
+    messages.value[index] = {
+      ...messages.value[index],
+      ...normalized,
+    }
+    return
   }
+
+  messages.value.push(normalized)
+}
 
   function appendToken(messageId: string, token: string): void {
     const message = messages.value.find((item) => item.id === messageId)
