@@ -1,3 +1,21 @@
+export interface MessageAttachment {
+  id: string
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  url: string
+}
+
+export interface PendingAttachment {
+  id: string
+  file: File
+  fileName: string
+  contentType: string
+  sizeBytes: number
+  previewUrl?: string
+  isImage: boolean
+}
+
 export type MessageRole = 'User' | 'Assistant'
 
 export interface User {
@@ -29,6 +47,7 @@ export interface ChatMessage {
   content: string
   createdAt: string
   clientTempId?: string
+  attachments?: MessageAttachment[]
 }
 
 export interface MessageSavedPayload extends ChatMessage {
@@ -41,4 +60,5 @@ export interface MessageStartedPayload {
   role: MessageRole
   content: string
   createdAt: string
+  attachments?: MessageAttachment[]
 }

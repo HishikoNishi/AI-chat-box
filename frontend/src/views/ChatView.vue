@@ -13,10 +13,12 @@ const chatStore = useChatStore()
 const router = useRouter()
 
 onMounted(async () => {
+  document.documentElement.classList.add('chat-active')
   await chatStore.loadSessions()
 })
 
 onUnmounted(async () => {
+  document.documentElement.classList.remove('chat-active')
   await chatStore.disconnect()
 })
 
@@ -53,12 +55,15 @@ async function handleLogout(): Promise<void> {
         </div>
       </header>
 
-      <p v-if="chatStore.error" class="error-banner chat-error-inline">
-        <AlertCircle :size="18" :stroke-width="2" style="flex-shrink:0;margin-top:1px" />
-        {{ chatStore.error }}
-      </p>
+      <div class="chat-body">
+        <p v-if="chatStore.error" class="error-banner chat-error-inline">
+          <AlertCircle :size="18" :stroke-width="2" style="flex-shrink:0;margin-top:1px" />
+          {{ chatStore.error }}
+        </p>
 
-      <ChatMessages />
+        <ChatMessages />
+      </div>
+
       <ChatInput />
     </section>
   </div>

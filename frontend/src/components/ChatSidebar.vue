@@ -37,7 +37,10 @@ async function handleCreateSession(): Promise<void> {
     </div>
 
     <div class="chat-sidebar-header">
-      <h3>Cuộc trò chuyện</h3>
+      <h3>
+        Cuộc trò chuyện
+        <span v-if="chatStore.sessions.length" class="session-count">{{ chatStore.sessions.length }}</span>
+      </h3>
       <button class="btn btn-secondary" type="button" @click="handleCreateSession">
         <Plus :size="16" />
         Mới

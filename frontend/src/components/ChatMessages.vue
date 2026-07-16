@@ -20,15 +20,27 @@ function isStreaming(messageId: string): boolean {
   return messageId === chatStore.streamingMessageId && chatStore.sending
 }
 
+function senderLabel(role: string): string {
+  return role === 'User' ? 'Bạn' : 'AI Assistant'
+}
+
 async function scrollToBottom(): Promise<void> {
   await nextTick()
   if (messagesEl.value) {
-    messagesEl.value.scrollTop = messagesEl.value.scrollHeight
+    messagesEl.value.scrollTo({
+      top: messagesEl.value.scrollHeight,
+      behavior: 'smooth',
+    })
   }
 }
 
 watch(
-  () => [chatStore.messages.length, chatStore.sending, chatStore.streamingMessageId],
+  () => [
+    chatStore.messages.length,
+    chatStore.sending,
+    chatStore.streamingMessageId,
+    chatStore.messages.at(-1)?.content,
+  ],
   () => scrollToBottom(),
 )
 </script>
@@ -62,19 +74,26 @@ watch(
           <Bot v-else :size="17" />
         </div>
 
-        <div class="message-bubble">
-          <template v-if="isStreaming(message.id) && !message.content">
-            <span class="typing-dots">
-              <span /><span /><span />
+        <div class="message-content">
+          <span class="message-sender">{{ senderLabel(message.role) }}</span>
+
+          <div
+            class="message-bubble"
+            :class="{ streaming: isStreaming(message.id) }"
+          >
+            <template v-if="isStreaming(message.id) && !message.content">
+              <span class="typing-dots">
+                <span /><span /><span />
+              </span>
+            </template>
+            <template v-else>
+              {{ message.content || '...' }}
+            </template>
+            <span class="message-meta">
+              <Clock :size="11" />
+              {{ formatTime(message.createdAt) }}
             </span>
-          </template>
-          <template v-else>
-            {{ message.content || '...' }}
-          </template>
-          <span class="message-meta">
-            <Clock :size="11" />
-            {{ formatTime(message.createdAt) }}
-          </span>
+          </div>
         </div>
       </div>
 
@@ -88,57 +107,3 @@ watch(
     </template>
   </section>
 </template>
-
-<style scoped>
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-.chat-messages {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  overflow-y: auto;
-}
-
-.message-row {
-  display: flex;
-  width: 100%;
-}
-
-
-/* User bên phải */
-.message-row.user {
-  justify-content: flex-end;
-}
-
-
-/* AI bên trái */
-.message-row.assistant {
-  justify-content: flex-start;
-}
-
-
-.message-row.user .message-bubble {
-  background: #2563eb;
-  color: white;
-  border-radius: 18px 18px 4px 18px;
-}
-
-
-.message-row.assistant .message-bubble {
-  background: #e5e7eb;
-  color: #111827;
-  border-radius: 18px 18px 18px 4px;
-}
-
-
-.message-bubble {
-  max-width: 70%;
-  padding: 12px 16px;
-}
-</style>

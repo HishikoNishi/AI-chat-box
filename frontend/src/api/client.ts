@@ -17,11 +17,16 @@ type RequestOptions = {
   body?: unknown
   token?: string | null
   credentials?: RequestCredentials
+  headers?: Record<string, string>
 }
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(options.headers ?? {}),
+  }
+
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json'
   }
 
   if (options.token) {
@@ -31,7 +36,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const response = await fetch(`${API_URL}${path}`, {
     method: options.method ?? 'GET',
     headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    body: options.body instanceof FormData
+      ? options.body
+      : options.body !== undefined
+        ? JSON.stringify(options.body)
+        : undefined,
     credentials: options.credentials ?? 'include',
   })
 
@@ -55,4 +64,9 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
 export function getApiUrl(): string {
   return API_URL
+}
+
+export function buildAttachmentUrl(relativeUrl: string, token: string): string {
+  const url = relativeUrl.startsWith('http') ? relativeUrl : `${API_URL}${relativeUrl}`
+  return `${url}?access_token=${encodeURIComponent(token)}`
 }
