@@ -4,7 +4,7 @@ namespace AiChat.Application.Chat;
 public interface IAiChatService
 {
     IAsyncEnumerable<string> GenerateContentStreamAsync(
+        Guid userId,
         IReadOnlyList<ChatMessageResponse> messages,
         CancellationToken cancellationToken = default);
-
 }

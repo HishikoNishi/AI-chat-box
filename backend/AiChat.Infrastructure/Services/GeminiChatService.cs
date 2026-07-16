@@ -8,12 +8,13 @@ using Microsoft.Extensions.Options;
 
 namespace AiChat.Infrastructure.Services;
 
-public sealed class GeminiChatService(HttpClient httpClient, IOptions<GeminiOptions> options) : IAiChatService
+public sealed class GeminiChatService(HttpClient httpClient, IOptions<GeminiOptions> options, IChatService chatService) : IAiChatService
 {
     private readonly GeminiOptions _options = options.Value;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async IAsyncEnumerable<string> GenerateContentStreamAsync(
+        Guid userId,
         IReadOnlyList<ChatMessageResponse> messages,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
@@ -22,7 +23,7 @@ public sealed class GeminiChatService(HttpClient httpClient, IOptions<GeminiOpti
         if (messages.Count == 0)
             throw new AiProviderException("No messages were provided to Gemini.");
 
-        using var response = await SendWithRetryAsync(messages, cancellationToken);
+        using var response = await SendWithRetryAsync(userId, messages, cancellationToken);
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var reader = new StreamReader(stream);
 
@@ -37,14 +38,14 @@ public sealed class GeminiChatService(HttpClient httpClient, IOptions<GeminiOpti
         }
     }
 
-    private async Task<HttpResponseMessage> SendWithRetryAsync(IReadOnlyList<ChatMessageResponse> messages, CancellationToken cancellationToken)
+    private async Task<HttpResponseMessage> SendWithRetryAsync(Guid userId, IReadOnlyList<ChatMessageResponse> messages, CancellationToken cancellationToken)
     {
         var maxRetries = Math.Clamp(_options.MaxRetries, 0, 5);
         for (var attempt = 0; ; attempt++)
         {
             try
             {
-                using var request = CreateRequest(messages);
+                using var request = await CreateRequestAsync(userId, messages, cancellationToken);
                 var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 if (response.IsSuccessStatusCode) return response;
 
@@ -73,21 +74,62 @@ public sealed class GeminiChatService(HttpClient httpClient, IOptions<GeminiOpti
         }
     }
 
-    private HttpRequestMessage CreateRequest(IReadOnlyList<ChatMessageResponse> messages)
+    private async Task<HttpRequestMessage> CreateRequestAsync(Guid userId, IReadOnlyList<ChatMessageResponse> messages, CancellationToken cancellationToken)
     {
-        var body = new
+        var contents = new List<object>();
+        foreach (var message in messages)
         {
-            contents = messages.Select(message => new
+            var parts = new List<object> { new { text = message.Content } };
+
+            if (message.Role == MessageRole.User)
+            {
+                foreach (var attachment in message.Attachments)
+                {
+                    if (!IsImageContentType(attachment.ContentType))
+                    {
+                        parts.Add(new { text = $"[Đính kèm: {attachment.FileName} ({attachment.ContentType})]" });
+                        continue;
+                    }
+
+                    var opened = await chatService.OpenAttachmentAsync(userId, attachment.Id, cancellationToken);
+                    if (opened is null)
+                    {
+                        parts.Add(new { text = $"[Không đọc được ảnh: {attachment.FileName}]" });
+                        continue;
+                    }
+
+                    await using var stream = opened.Value.Stream;
+                    using var memory = new MemoryStream();
+                    await stream.CopyToAsync(memory, cancellationToken);
+                    var base64 = Convert.ToBase64String(memory.ToArray());
+                    parts.Add(new
+                    {
+                        inline_data = new
+                        {
+                            mime_type = attachment.ContentType,
+                            data = base64
+                        }
+                    });
+                }
+            }
+
+            contents.Add(new
             {
                 role = message.Role == MessageRole.Assistant ? "model" : "user",
-                parts = new[] { new { text = message.Content } }
-            }),
+                parts
+            });
+        }
+
+        var body = new
+        {
+            contents,
             generationConfig = new
             {
                 temperature = _options.Temperature,
                 maxOutputTokens = _options.MaxOutputTokens
             }
         };
+
         var request = new HttpRequestMessage(HttpMethod.Post,
             $"v1beta/models/{Uri.EscapeDataString(_options.Model)}:streamGenerateContent?alt=sse")
         {
@@ -96,6 +138,9 @@ public sealed class GeminiChatService(HttpClient httpClient, IOptions<GeminiOpti
         request.Headers.Add("x-goog-api-key", _options.ApiKey);
         return request;
     }
+
+    private static bool IsImageContentType(string contentType) =>
+        contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsTransient(HttpStatusCode statusCode) =>
         statusCode == HttpStatusCode.RequestTimeout ||

@@ -15,6 +15,7 @@ public static class DependencyInjection
     {
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.SectionName));
         services.Configure<GeminiOptions>(configuration.GetSection(GeminiOptions.SectionName));
+        services.Configure<UploadOptions>(configuration.GetSection(UploadOptions.SectionName));
         services.AddDbContext<AppDbContext>(options => options.UseNpgsql(configuration.GetConnectionString("Postgres")));
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IChatService, ChatService>();

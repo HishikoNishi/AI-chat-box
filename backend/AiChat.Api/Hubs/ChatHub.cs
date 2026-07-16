@@ -14,7 +14,7 @@ public sealed class ChatHub(
     IChatService chatService,
     ILogger<ChatHub> logger) : Hub
 {
-    public async Task SendMessage(string sessionId, string text, string? clientTempId = null)
+    public async Task SendMessage(string sessionId, string text, string? clientTempId = null, string[]? attachmentIds = null)
     {
         if (!Guid.TryParse(sessionId, out var parsedSessionId))
         {
@@ -24,16 +24,16 @@ public sealed class ChatHub(
 
         try
         {
-            var userId = Guid.Parse(
-                Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!
-            );
+            var userId = Guid.Parse(Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var parsedAttachmentIds = ParseAttachmentIds(attachmentIds);
 
             var message = await chatService.AddMessageAsync(
                 userId,
                 parsedSessionId,
                 MessageRole.User,
                 text,
-                Context.ConnectionAborted);
+                Context.ConnectionAborted,
+                attachmentIds: parsedAttachmentIds);
 
             await Clients.Caller.SendAsync("MessageSaved", new
             {
@@ -42,47 +42,32 @@ public sealed class ChatHub(
                 message.Role,
                 message.Content,
                 message.CreatedAt,
+                message.Attachments,
                 ClientTempId = clientTempId
             }, Context.ConnectionAborted);
 
-
-            var history = await chatService.GetMessagesAsync(
-                userId,
-                parsedSessionId,
-                Context.ConnectionAborted);
-
+            var history = await chatService.GetMessagesAsync(userId, parsedSessionId, Context.ConnectionAborted);
 
             var assistantMessageId = Guid.NewGuid();
-
             await Clients.Caller.SendAsync("MessageStarted", new
             {
                 Id = assistantMessageId,
                 SessionId = parsedSessionId,
                 Role = MessageRole.Assistant,
                 Content = "",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Attachments = Array.Empty<AttachmentResponse>()
             }, Context.ConnectionAborted);
 
-
             var assistantContent = new StringBuilder();
-
-            await foreach (var token in aiChatService.GenerateContentStreamAsync(
-                history,
-                Context.ConnectionAborted))
+            await foreach (var token in aiChatService.GenerateContentStreamAsync(userId, history, Context.ConnectionAborted))
             {
                 assistantContent.Append(token);
-
-                await Clients.Caller.SendAsync(
-                    "ReceiveToken",
-                    token,
-                    Context.ConnectionAborted);
+                await Clients.Caller.SendAsync("ReceiveToken", token, Context.ConnectionAborted);
             }
 
-
             if (assistantContent.Length == 0)
-                throw new AiProviderException(
-                    "Gemini did not return any text for this request.");
-
+                throw new AiProviderException("Gemini did not return any text for this request.");
 
             var assistantMessage = await chatService.AddMessageAsync(
                 userId,
@@ -92,47 +77,35 @@ public sealed class ChatHub(
                 Context.ConnectionAborted,
                 presetId: assistantMessageId);
 
-
-            await Clients.Caller.SendAsync(
-                "StreamComplete",
-                assistantMessage,
-                Context.ConnectionAborted);
+            await Clients.Caller.SendAsync("StreamComplete", assistantMessage, Context.ConnectionAborted);
         }
-        catch (ValidationException exception)
-        {
-            await Clients.Caller.SendAsync("ReceiveError", exception.Message);
-        }
-        catch (NotFoundException exception)
-        {
-            await Clients.Caller.SendAsync("ReceiveError", exception.Message);
-        }
+        catch (ValidationException exception) { await Clients.Caller.SendAsync("ReceiveError", exception.Message); }
+        catch (NotFoundException exception) { await Clients.Caller.SendAsync("ReceiveError", exception.Message); }
         catch (RateLimitException)
         {
-            await Clients.Caller.SendAsync(
-                "ReceiveError",
-                "Gemini is rate-limited right now. Please wait a moment and try again.");
+            await Clients.Caller.SendAsync("ReceiveError", "Gemini is rate-limited right now. Please wait a moment and try again.");
         }
         catch (AiProviderException exception)
         {
-            logger.LogWarning(
-                exception,
-                "Gemini request failed for connection {ConnectionId}",
-                Context.ConnectionId);
-
-            await Clients.Caller.SendAsync(
-                "ReceiveError",
-                "The AI response is unavailable right now. Please try again shortly.");
+            logger.LogWarning(exception, "Gemini request failed for connection {ConnectionId}", Context.ConnectionId);
+            await Clients.Caller.SendAsync("ReceiveError", "The AI response is unavailable right now. Please try again shortly.");
         }
         catch (Exception exception)
         {
-            logger.LogError(
-                exception,
-                "Error sending message for connection {ConnectionId}",
-                Context.ConnectionId);
-
-            await Clients.Caller.SendAsync(
-                "ReceiveError",
-                "Unable to process this message. Please try again.");
+            logger.LogError(exception, "Error sending message for connection {ConnectionId}", Context.ConnectionId);
+            await Clients.Caller.SendAsync("ReceiveError", "Unable to process this message. Please try again.");
         }
+    }
+
+    private static IReadOnlyList<Guid> ParseAttachmentIds(string[]? attachmentIds)
+    {
+        if (attachmentIds is null || attachmentIds.Length == 0)
+            return [];
+
+        return attachmentIds
+            .Select(id => Guid.TryParse(id, out var parsed) ? parsed : Guid.Empty)
+            .Where(id => id != Guid.Empty)
+            .Distinct()
+            .ToList();
     }
 }
