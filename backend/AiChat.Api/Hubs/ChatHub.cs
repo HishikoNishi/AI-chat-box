@@ -14,7 +14,7 @@ public sealed class ChatHub(
     IChatService chatService,
     ILogger<ChatHub> logger) : Hub
 {
-    public async Task SendMessage(string sessionId, string text, string? clientTempId = null, string[]? attachmentIds = null)
+    public async Task SendMessage(string sessionId, string text, string? clientTempId = null)
     {
         if (!Guid.TryParse(sessionId, out var parsedSessionId))
         {
@@ -25,15 +25,13 @@ public sealed class ChatHub(
         try
         {
             var userId = Guid.Parse(Context.User!.FindFirstValue(ClaimTypes.NameIdentifier)!);
-            var parsedAttachmentIds = ParseAttachmentIds(attachmentIds);
 
             var message = await chatService.AddMessageAsync(
                 userId,
                 parsedSessionId,
                 MessageRole.User,
                 text,
-                Context.ConnectionAborted,
-                attachmentIds: parsedAttachmentIds);
+                Context.ConnectionAborted);
 
             await Clients.Caller.SendAsync("MessageSaved", new
             {
@@ -42,7 +40,6 @@ public sealed class ChatHub(
                 message.Role,
                 message.Content,
                 message.CreatedAt,
-                message.Attachments,
                 ClientTempId = clientTempId
             }, Context.ConnectionAborted);
 

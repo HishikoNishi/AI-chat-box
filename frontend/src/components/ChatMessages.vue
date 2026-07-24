@@ -39,7 +39,7 @@ watch(
     chatStore.messages.length,
     chatStore.sending,
     chatStore.streamingMessageId,
-    chatStore.messages.at(-1)?.content,
+    chatStore.messages[chatStore.messages.length - 1]?.content,
   ],
   () => scrollToBottom(),
 )
